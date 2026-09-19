@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rendhagyó igék gyakorlása</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #667085;
+      --paper: #f6f8fc;
+      --card: #ffffff;
+      --line: #dfe5ef;
+      --brand: #3157d5;
+      --brand-dark: #2444ad;
+      --good: #087443;
+      --good-bg: #e9f8f0;
+      --bad: #b42318;
+      --bad-bg: #fff0ee;
+      --shadow: 0 18px 45px rgba(27, 43, 82, .12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: radial-gradient(circle at top left, #e8eeff 0, transparent 34%), var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      width: min(940px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0 56px;
+    }
+
+    header { margin-bottom: 24px; }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--brand);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 700px;
+      font-size: clamp(2rem, 5vw, 3.7rem);
+      line-height: 1.03;
+      letter-spacing: -.045em;
+    }
+
+    .intro {
+      max-width: 680px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 1.06rem;
+      line-height: 1.6;
+    }
+
+    .card {
+      border: 1px solid rgba(223, 229, 239, .9);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      gap: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: .88rem;
+      font-weight: 700;
+    }
+
+    select, button, input {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font: inherit;
+    }
+
+    select {
+      min-width: 205px;
+      padding: 11px 38px 11px 13px;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    button {
+      min-height: 44px;
+      padding: 10px 16px;
+      color: #fff;
+      background: var(--brand);
+      cursor: pointer;
+      font-weight: 800;
+      transition: background .18s ease, transform .18s ease;
+    }
+
+    button:hover { background: var(--brand-dark); transform: translateY(-1px); }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #b8c6ff; outline-offset: 2px; }
+
+    .secondary {
+      color: var(--brand-dark);
+      background: #eef2ff;
+      border-color: #d7defd;
+    }
+
+    .secondary:hover { background: #e0e7ff; }
+
+    .stats {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-left: auto;
+      color: var(--muted);
+      font-size: .94rem;
+      font-weight: 700;
+    }
+
+    .stats strong { color: var(--ink); font-size: 1.12rem; }
+
+    .exercise { padding: clamp(22px, 5vw, 42px); }
+
+    .question-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 26px;
+    }
+
+    .question-number { margin: 0; color: var(--muted); font-size: .9rem; font-weight: 800; }
+    .meaning { margin: 7px 0 0; font-size: 1.18rem; }
+
+    .hint {
+      flex: 0 0 auto;
+      padding: 9px 12px;
+      border-radius: 999px;
+      color: #43506b;
+      background: #f0f3f9;
+      font-size: .86rem;
+      font-weight: 800;
+    }
+
+    .forms {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .form-box {
+      display: grid;
+      gap: 8px;
+    }
+
+    .form-label { color: var(--muted); font-size: .85rem; font-weight: 800; }
+
+    input {
+      width: 100%;
+      padding: 14px 13px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 1.04rem;
+    }
+
+    input:disabled {
+      color: #536077;
+      background: #f4f6fa;
+      cursor: not-allowed;
+    }
+
+    .form-box.given input { border-color: #c8d3ff; background: #f1f4ff; font-weight: 800; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .feedback {
+      display: none;
+      margin-top: 20px;
+      padding: 15px 16px;
+      border-radius: 14px;
+      line-height: 1.5;
+    }
+
+    .feedback.show { display: block; }
+    .feedback.good { color: var(--good); background: var(--good-bg); }
+    .feedback.bad { color: var(--bad); background: var(--bad-bg); }
+
+    .progress {
+      height: 8px;
+      margin: 22px 0 0;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #edf0f6;
+    }
+
+    .progress > span {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #6b7fff, var(--brand));
+      transition: width .25s ease;
+    }
+
+    .table-card { margin-top: 18px; padding: 22px; }
+    .table-card h2 { margin: 0 0 14px; font-size: 1.25rem; }
+
+    .verb-table { width: 100%; border-collapse: collapse; font-size: .94rem; }
+    .verb-table th, .verb-table td { padding: 10px 8px; border-bottom: 1px solid #edf0f5; text-align: left; }
+    .verb-table th { color: var(--muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
+    .verb-table tbody tr:last-child td { border-bottom: 0; }
+    .verb-table td:not(:first-child) { font-weight: 750; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 660px) {
+      .wrap { width: min(100% - 22px, 940px); padding-top: 28px; }
+      .controls { align-items: stretch; }
+      .stats { width: 100%; margin-left: 0; justify-content: space-between; }
+      .forms { grid-template-columns: 1fr; }
+      .question-top { display: block; }
+      .hint { display: inline-block; margin-top: 14px; }
+      .verb-table { font-size: .84rem; }
+      .verb-table th, .verb-table td { padding: 8px 4px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <p class="eyebrow">Angol gyakorló</p>
+      <h1>Rendhagyó igék, biztos alapokkal.</h1>
+      <p class="intro">A képen szereplő mind a 76 nyomtatott igét gyakorolhatod. Írd be a hiányzó igealakokat; egy teljes körben mindegyik ige egyszer kerül elő.</p>
+    </header>
+
+    <section class="card controls" aria-label="Gyakorlás beállításai">
+      <label for="mode">Gyakorlási mód
+        <select id="mode">
+          <option value="mixed">Vegyesen</option>
+          <option value="base">Az alapige adott</option>
+          <option value="past">A múlt idejű alak adott</option>
+          <option value="participle">A 3. alak adott</option>
+        </select>
+      </label>
+      <button class="secondary" id="newRound" type="button">Új kör</button>
+      <div class="stats" aria-live="polite">
+        <span>Pontszám: <strong id="score">0</strong></span>
+        <span>Feladat: <strong id="counter">1/10</strong></span>
+      </div>
+    </section>
+
+    <section class="card exercise" aria-labelledby="questionTitle">
+      <div class="question-top">
+        <div>
+          <p class="question-number" id="questionTitle">1. feladat</p>
+          <p class="meaning" id="meaning">lenni</p>
+        </div>
+        <span class="hint" id="hint">Egy alak adott</span>
+      </div>
+
+      <div class="forms">
+        <label class="form-box" id="baseBox" for="baseInput">
+          <span class="form-label">Alapige (1. alak)</span>
+          <input id="baseInput" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </label>
+        <label class="form-box" id="pastBox" for="pastInput">
+          <span class="form-label">Múlt idő (2. alak)</span>
+          <input id="pastInput" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </label>
+        <label class="form-box" id="participleBox" for="participleInput">
+          <span class="form-label">Befejezett melléknévi igenév (3. alak)</span>
+          <input id="participleInput" autocomplete="off" autocapitalize="none" spellcheck="false">
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="check" type="button">Ellenőrzés</button>
+        <button id="skip" class="secondary" type="button">Megmutatom a választ</button>
+      </div>
+      <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      <div class="progress" aria-label="Haladás"><span id="progressBar"></span></div>
+    </section>
+
+    <section class="card table-card">
+      <h2>A képen szereplő összes ige</h2>
+      <table class="verb-table">
+        <thead>
+          <tr><th>Alapige</th><th>1. alak</th><th>2. alak</th><th>3. alak</th></tr>
+        </thead>
+        <tbody id="verbTable"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    // A képről csak a nyomtatott alakok kerültek ide; a ceruzás megjegyzések szándékosan kimaradtak.
+    const verbs = [
+      { hu: 'be', base: 'be', past: 'was / were', participle: 'been' },
+      { hu: 'become', base: 'become', past: 'became', participle: 'become' },
+      { hu: 'begin', base: 'begin', past: 'began', participle: 'begun' },
+      { hu: 'break', base: 'break', past: 'broke', participle: 'broken' },
+      { hu: 'bring', base: 'bring', past: 'brought', participle: 'brought' },
+      { hu: 'build', base: 'build', past: 'built', participle: 'built' },
+      { hu: 'buy', base: 'buy', past: 'bought', participle: 'bought' },
+      { hu: 'catch', base: 'catch', past: 'caught', participle: 'caught' },
+      { hu: 'choose', base: 'choose', past: 'chose', participle: 'chosen' },
+      { hu: 'come', base: 'come', past: 'came', participle: 'come' },
+      { hu: 'cost', base: 'cost', past: 'cost', participle: 'cost' },
+      { hu: 'cut', base: 'cut', past: 'cut', participle: 'cut' },
+      { hu: 'do', base: 'do', past: 'did', participle: 'done' },
+      { hu: 'draw', base: 'draw', past: 'drew', participle: 'drawn' },
+      { hu: 'dream', base: 'dream', past: 'dreamt / dreamed', participle: 'dreamt / dreamed' },
+      { hu: 'drink', base: 'drink', past: 'drank', participle: 'drunk' },
+      { hu: 'drive', base: 'drive', past: 'drove', participle: 'driven' },
+      { hu: 'eat', base: 'eat', past: 'ate', participle: 'eaten' },
+      { hu: 'fall', base: 'fall', past: 'fell', participle: 'fallen' },
+      { hu: 'feel', base: 'feel', past: 'felt', participle: 'felt' },
+      { hu: 'find', base: 'find', past: 'found', participle: 'found' },
+      { hu: 'fly', base: 'fly', past: 'flew', participle: 'flown' },
+      { hu: 'forget', base: 'forget', past: 'forgot', participle: 'forgotten' },
+      { hu: 'get', base: 'get', past: 'got', participle: 'got' },
+      { hu: 'give', base: 'give', past: 'gave', participle: 'given' },
+      { hu: 'go', base: 'go', past: 'went', participle: 'gone' },
+      { hu: 'grow', base: 'grow', past: 'grew', participle: 'grown' },
+      { hu: 'hang', base: 'hang', past: 'hung', participle: 'hung' },
+      { hu: 'have', base: 'have', past: 'had', participle: 'had' },
+      { hu: 'hear', base: 'hear', past: 'heard', participle: 'heard' },
+      { hu: 'hide', base: 'hide', past: 'hid', participle: 'hidden' },
+      { hu: 'hit', base: 'hit', past: 'hit', participle: 'hit' },
+      { hu: 'hold', base: 'hold', past: 'held', participle: 'held' },
+      { hu: 'hurt', base: 'hurt', past: 'hurt', participle: 'hurt' },
+      { hu: 'keep', base: 'keep', past: 'kept', participle: 'kept' },
+      { hu: 'know', base: 'know', past: 'knew', participle: 'known' },
+      { hu: 'learn', base: 'learn', past: 'learnt / learned', participle: 'learnt / learned' },
+      { hu: 'leave', base: 'leave', past: 'left', participle: 'left' },
+      { hu: 'lend', base: 'lend', past: 'lent', participle: 'lent' },
+      { hu: 'let', base: 'let', past: 'let', participle: 'let' },
+      { hu: 'lie', base: 'lie', past: 'lay', participle: 'lain' },
+      { hu: 'lose', base: 'lose', past: 'lost', participle: 'lost' },
+      { hu: 'make', base: 'make', past: 'made', participle: 'made' },
+      { hu: 'mean', base: 'mean', past: 'meant', participle: 'meant' },
+      { hu: 'meet', base: 'meet', past: 'met', participle: 'met' },
+      { hu: 'pay', base: 'pay', past: 'paid', participle: 'paid' },
+      { hu: 'put', base: 'put', past: 'put', participle: 'put' },
+      { hu: 'read', base: 'read', past: 'read', participle: 'read' },
+      { hu: 'ride', base: 'ride', past: 'rode', participle: 'ridden' },
+      { hu: 'ring', base: 'ring', past: 'rang', participle: 'rung' },
+      { hu: 'run', base: 'run', past: 'ran', participle: 'run' },
+      { hu: 'say', base: 'say', past: 'said', participle: 'said' },
+      { hu: 'see', base: 'see', past: 'saw', participle: 'seen' },
+      { hu: 'sell', base: 'sell', past: 'sold', participle: 'sold' },
+      { hu: 'send', base: 'send', past: 'sent', participle: 'sent' },
+      { hu: 'shake', base: 'shake', past: 'shook', participle: 'shaken' },
+      { hu: 'show', base: 'show', past: 'showed', participle: 'shown' },
+      { hu: 'sing', base: 'sing', past: 'sang', participle: 'sung' },
+      { hu: 'sit', base: 'sit', past: 'sat', participle: 'sat' },
+      { hu: 'sleep', base: 'sleep', past: 'slept', participle: 'slept' },
+      { hu: 'smell', base: 'smell', past: 'smelt / smelled', participle: 'smelt / smelled' },
+      { hu: 'speak', base: 'speak', past: 'spoke', participle: 'spoken' },
+      { hu: 'spell', base: 'spell', past: 'spelt / spelled', participle: 'spelt / spelled' },
+      { hu: 'spend', base: 'spend', past: 'spent', participle: 'spent' },
+      { hu: 'stand', base: 'stand', past: 'stood', participle: 'stood' },
+      { hu: 'swim', base: 'swim', past: 'swam', participle: 'swum' },
+      { hu: 'take', base: 'take', past: 'took', participle: 'taken' },
+      { hu: 'teach', base: 'teach', past: 'taught', participle: 'taught' },
+      { hu: 'tell', base: 'tell', past: 'told', participle: 'told' },
+      { hu: 'think', base: 'think', past: 'thought', participle: 'thought' },
+      { hu: 'throw', base: 'throw', past: 'threw', participle: 'thrown' },
+      { hu: 'understand', base: 'understand', past: 'understood', participle: 'understood' },
+      { hu: 'wake', base: 'wake', past: 'woke', participle: 'woken' },
+      { hu: 'wear', base: 'wear', past: 'wore', participle: 'worn' },
+      { hu: 'win', base: 'win', past: 'won', participle: 'won' },
+      { hu: 'write', base: 'write', past: 'wrote', participle: 'written' }
+    ];
+
+    const totalQuestions = verbs.length;
+    let current;
+    let questionNumber = 1;
+    let score = 0;
+    let checked = false;
+    let used = [];
+
+    const $ = (id) => document.getElementById(id);
+    const inputs = { base: $('baseInput'), past: $('pastInput'), participle: $('participleInput') };
+    const boxes = { base: $('baseBox'), past: $('pastBox'), participle: $('participleBox') };
+
+    function normalise(value) {
+      return value.trim().toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ');
+    }
+
+    function acceptable(value, answer) {
+      const alternatives = answer.split('/').map((item) => normalise(item));
+      return alternatives.includes(normalise(value));
+    }
+
+    function randomVerb() {
+      let candidates = verbs.filter((_, index) => !used.includes(index));
+      if (!candidates.length) { used = []; candidates = verbs.slice(); }
+      const verb = candidates[Math.floor(Math.random() * candidates.length)];
+      used.push(verbs.indexOf(verb));
+      return verb;
+    }
+
+    function modeToGiven() {
+      const mode = $('mode').value;
+      if (mode !== 'mixed') return mode;
+      return ['base', 'past', 'participle'][Math.floor(Math.random() * 3)];
+    }
+
+    function setFeedback(message, kind) {
+      const feedback = $('feedback');
+      feedback.textContent = message;
+      feedback.className = `feedback show ${kind}`;
+    }
+
+    function renderQuestion() {
+      current = randomVerb();
+      checked = false;
+      const given = modeToGiven();
+      $('meaning').textContent = current.hu;
+      $('questionTitle').textContent = `${questionNumber}. feladat`;
+      $('counter').textContent = `${questionNumber}/${totalQuestions}`;
+      $('hint').textContent = `${given === 'base' ? 'Alapige' : given === 'past' ? 'Múlt idő' : '3. alak'} adott`;
+      $('feedback').className = 'feedback';
+      $('feedback').textContent = '';
+      Object.entries(inputs).forEach(([key, input]) => {
+        input.value = key === given ? current[key] : '';
+        input.disabled = key === given;
+        boxes[key].classList.toggle('given', key === given);
+      });
+      $('progressBar').style.width = `${((questionNumber - 1) / totalQuestions) * 100}%`;
+      const firstEmpty = Object.keys(inputs).find((key) => !inputs[key].disabled);
+      if (firstEmpty) inputs[firstEmpty].focus();
+    }
+
+    function nextQuestion() {
+      if (questionNumber >= totalQuestions) {
+        $('progressBar').style.width = '100%';
+        setFeedback(`Kész a kör! Eredményed: ${score}/${totalQuestions}. Nyomj az „Új kör” gombra, ha folytatnád.`, score >= 7 ? 'good' : 'bad');
+        $('check').disabled = true;
+        $('skip').disabled = true;
+        return;
+      }
+      questionNumber += 1;
+      renderQuestion();
+    }
+
+    function checkAnswer() {
+      if (checked) { nextQuestion(); return; }
+      const given = Object.keys(inputs).find((key) => inputs[key].disabled);
+      const missing = Object.keys(inputs).filter((key) => key !== given);
+      const allCorrect = missing.every((key) => acceptable(inputs[key].value, current[key]));
+      checked = true;
+      if (allCorrect) {
+        score += 1;
+        $('score').textContent = score;
+        setFeedback('Helyes. Mindkét hiányzó alak jó.', 'good');
+      } else {
+        const answer = `${current.base} / ${current.past} / ${current.participle}`;
+        setFeedback(`Nem teljesen jó. A helyes sor: ${answer}`, 'bad');
+      }
+      $('progressBar').style.width = `${(questionNumber / totalQuestions) * 100}%`;
+      $('check').textContent = questionNumber >= totalQuestions ? 'Eredmény' : 'Következő';
+    }
+
+    function revealAnswer() {
+      if (checked) { nextQuestion(); return; }
+      Object.keys(inputs).forEach((key) => { inputs[key].value = current[key]; });
+      checked = true;
+      setFeedback(`A helyes sor: ${current.base} / ${current.past} / ${current.participle}`, 'bad');
+      $('progressBar').style.width = `${(questionNumber / totalQuestions) * 100}%`;
+      $('check').textContent = questionNumber >= totalQuestions ? 'Eredmény' : 'Következő';
+    }
+
+    function newRound() {
+      score = 0;
+      questionNumber = 1;
+      used = [];
+      $('score').textContent = '0';
+      $('check').disabled = false;
+      $('skip').disabled = false;
+      $('check').textContent = 'Ellenőrzés';
+      $('skip').textContent = 'Megmutatom a választ';
+      renderQuestion();
+    }
+
+    $('check').addEventListener('click', checkAnswer);
+    $('skip').addEventListener('click', revealAnswer);
+    $('newRound').addEventListener('click', newRound);
+    $('mode').addEventListener('change', newRound);
+    Object.values(inputs).forEach((input) => input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') checkAnswer();
+    }));
+
+    $('verbTable').innerHTML = verbs.map((verb) => `<tr><td>${verb.hu}</td><td>${verb.base}</td><td>${verb.past}</td><td>${verb.participle}</td></tr>`).join('');
+    renderQuestion();
+  </script>
+</body>
+</html>
+
