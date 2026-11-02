@@ -6,6 +6,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 
@@ -51,8 +52,7 @@ local function nodeKey(node: BasePart): string
 end
 
 local function getEquippedToolLevel(player: Player): number
-	-- Equipment slots arrive fully in the same stage's EquipmentService;
-	-- until then, hands count as tool level 0.
+	-- Hands count as tool level 0; equipped tools raise it via EquipmentService.
 	local EquipmentService = require(Services:WaitForChild("EquipmentService"))
 	return EquipmentService.GetEquippedToolLevel(player)
 end
