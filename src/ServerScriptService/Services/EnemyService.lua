@@ -3,6 +3,7 @@
 -- Server-side enemy service. Spawns blockout enemy rigs at fixed locations
 -- with a bounded state machine: Patrol -> Detect -> Pursue -> Attack ->
 -- Search -> Return. Updates at a fixed 0.5s cadence, never per-frame.
+-- RegionService registers additional spawns through RegisterSpawn.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,6 +25,7 @@ type EnemyInstance = {
 	model: Model,
 	torso: BasePart,
 	homePosition: Vector3,
+	regionId: string,
 	health: number,
 	state: string, -- "Patrol" | "Pursue" | "Attack" | "Search" | "Return"
 	targetPlayer: Player?,
@@ -40,13 +42,20 @@ local GiveUpDistance = 70
 local SearchSeconds = 6
 local RespawnSeconds = 120
 
-local SpawnPoints = {
+local GreywoodSpawnPoints = {
 	{ enemyId = "Scavenger", position = Vector3.new(150, 0, 200) },
 	{ enemyId = "Scavenger", position = Vector3.new(185, 0, 280) },
 	{ enemyId = "FeralDog", position = Vector3.new(-100, 0, -110) },
 	{ enemyId = "FeralDog", position = Vector3.new(-135, 0, 150) },
 	{ enemyId = "Scavenger", position = Vector3.new(230, 0, -100) },
 }
+
+-- All registered spawn points, including region spawns. Duplicates are
+-- rejected so RegionService can safely re-register on script restart.
+local allSpawnPoints: {{ enemyId: string, position: Vector3, regionId: string }} = {}
+
+-- Optional hook set by other services (e.g. QuestService kill objectives).
+local onEnemyKilled: ((player: Player, enemyId: string, regionId: string) -> ())? = nil
 
 local function buildRig(config: any, position: Vector3): (Model, BasePart)
 	local model = Instance.new("Model")
@@ -80,7 +89,7 @@ local function spawnEnemy(spawnInfo: any)
 		return
 	end
 
-	-- Check whether an active or respawning enemy already occupies this point.
+	-- Check whether an active enemy already occupies this point.
 	for _, enemy in ipairs(enemies) do
 		if enemy.homePosition == spawnInfo.position and not enemy.dead then
 			return
@@ -96,6 +105,7 @@ local function spawnEnemy(spawnInfo: any)
 		model = model,
 		torso = torso,
 		homePosition = spawnInfo.position,
+		regionId = spawnInfo.regionId or "GreywoodCounty",
 		health = config.health,
 		state = "Patrol",
 		targetPlayer = nil,
@@ -103,6 +113,39 @@ local function spawnEnemy(spawnInfo: any)
 		stateSince = os.clock(),
 		dead = false,
 	})
+end
+
+-- Public API: register a spawn point at runtime (used by RegionService).
+-- Positions are absolute; the caller composes region offsets.
+function EnemyService.RegisterSpawn(enemyId: string, position: Vector3, regionId: string?)
+	if not EnemyDefinitions.Get(enemyId) then
+		warn(("AFTERZERO EnemyService: unknown enemy id %s"):format(enemyId))
+		return false
+	end
+
+	for _, existing in ipairs(allSpawnPoints) do
+		if existing.position == position then
+			return false -- already registered
+		end
+	end
+
+	table.insert(allSpawnPoints, {
+		enemyId = enemyId,
+		position = position,
+		regionId = regionId or "GreywoodCounty",
+	})
+
+	if started then
+		spawnEnemy({ enemyId = enemyId, position = position, regionId = regionId or "GreywoodCounty" })
+	end
+
+	return true
+end
+
+-- Public API: other services may subscribe to kill events (validated here,
+-- not by the client).
+function EnemyService.SetOnKilledCallback(callback: (player: Player, enemyId: string, regionId: string) -> ())
+	onEnemyKilled = callback
 end
 
 local function nearestVisiblePlayer(position: Vector3, aggroRange: number): Player?
@@ -155,12 +198,18 @@ function EnemyService.DamageEnemy(attacker: Player, model: Model, damage: number
 			InventoryService.AddItem(attacker, drop.id, drop.count)
 		end
 
+		-- Notify subscribers (quest kill objectives) after rewards settle.
+		if onEnemyKilled then
+			task.spawn(onEnemyKilled, attacker, enemy.config.id, enemy.regionId)
+		end
+
 		-- Respawn the spawn point after a delay.
 		local homePosition = enemy.homePosition
 		local enemyId = enemy.config.id
+		local regionId = enemy.regionId
 		task.delay(RespawnSeconds, function()
 			if started then
-				spawnEnemy({ enemyId = enemyId, position = homePosition })
+				spawnEnemy({ enemyId = enemyId, position = homePosition, regionId = regionId })
 			end
 		end)
 	end
@@ -263,19 +312,16 @@ function EnemyService.Start()
 	end
 	started = true
 
-	local world = Workspace:FindFirstChild("World")
-	if not world then
-		warn("AFTERZERO EnemyService: world not generated; enemies not spawned")
-	else
-		local folder = world:FindFirstChild("Enemies")
-		if not folder then
-			folder = Instance.new("Folder")
-			folder.Name = "Enemies"
-			folder.Parent = world
-		end
-		for _, spawnInfo in ipairs(SpawnPoints) do
-			spawnEnemy(spawnInfo)
-		end
+	for _, spawnInfo in ipairs(GreywoodSpawnPoints) do
+		table.insert(allSpawnPoints, {
+			enemyId = spawnInfo.enemyId,
+			position = spawnInfo.position,
+			regionId = "GreywoodCounty",
+		})
+	end
+
+	for _, spawnInfo in ipairs(allSpawnPoints) do
+		spawnEnemy(spawnInfo)
 	end
 
 	task.spawn(function()
