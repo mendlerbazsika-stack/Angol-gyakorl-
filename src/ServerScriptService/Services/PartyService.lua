@@ -323,7 +323,6 @@ function PartyService.Start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		invites[player] = nil
-		tradeRequestsCleanupPlaceholder = nil -- placeholder removed below
 		PartyService.LeaveParty(player)
 	end)
 
