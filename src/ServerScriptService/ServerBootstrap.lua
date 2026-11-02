@@ -1,6 +1,8 @@
 --!strict
 -- AFTERZERO: THE LAST CIVILIZATION
 -- Server bootstrap. Starts services in dependency order.
+-- RegionService boots before EnemyService so region spawn registrations
+-- exist when EnemyService's initial spawn pass runs.
 
 local Services = script.Parent:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
@@ -11,6 +13,9 @@ local EquipmentService = require(Services:WaitForChild("EquipmentService"))
 local GatheringService = require(Services:WaitForChild("GatheringService"))
 local CraftingService = require(Services:WaitForChild("CraftingService"))
 local WorldService = require(Services:WaitForChild("WorldService"))
+local FactionService = require(Services:WaitForChild("FactionService"))
+local CampaignService = require(Services:WaitForChild("CampaignService"))
+local RegionService = require(Services:WaitForChild("RegionService"))
 local QuestService = require(Services:WaitForChild("QuestService"))
 local DialogueService = require(Services:WaitForChild("DialogueService"))
 local EnemyService = require(Services:WaitForChild("EnemyService"))
@@ -28,6 +33,9 @@ EquipmentService.Start()
 GatheringService.Start()
 CraftingService.Start()
 WorldService.Start()
+FactionService.Start()
+CampaignService.Start()
+RegionService.Start()
 QuestService.Start()
 DialogueService.Start()
 EnemyService.Start()
@@ -37,4 +45,4 @@ TradingService.Start()
 BuildingService.Start()
 VehicleService.Start()
 
-print("AFTERZERO Stage 8 server services initialized.")
+print("AFTERZERO Stage 9 server services initialized.")
