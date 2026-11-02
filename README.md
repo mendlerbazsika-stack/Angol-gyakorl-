@@ -4,7 +4,7 @@ Original post-apocalyptic multiplayer survival experience for Roblox, built with
 
 Year 2039. A global event called **The Blackout** collapsed electrical grids, communications, and transportation worldwide. The official story blames solar storms. Evidence scattered across five regions suggests a secret research organization was experimenting with technology that manipulates energy and matter — and something went wrong. Survivors scrape by in settlements and fortified zones while the truth waits underground.
 
-**Status: Stage 2 of 10. This is not a playable game yet, and nothing here has been tested in Roblox Studio.**
+**Status: Stage 3 of 10. This is not a playable game yet, and nothing here has been tested in Roblox Studio.**
 
 ## Progress
 
@@ -12,7 +12,7 @@ Year 2039. A global event called **The Blackout** collapsed electrical grids, co
 |---|---|---|
 | 1 | Core framework, player initialization, persistence | Scripts provided, untested in Studio |
 | 2 | Survival, inventory, items, loot, consumables | Scripts provided, untested in Studio |
-| 3 | Crafting, equipment, gathering | Not started |
+| 3 | Crafting, equipment, gathering | Scripts provided, untested in Studio |
 | 4 | World regions, environment, exploration | Not started |
 | 5 | NPCs, dialogue, quest framework | Not started |
 | 6 | Combat, weapons, enemies, AI | Not started |
@@ -30,47 +30,56 @@ Year 2039. A global event called **The Blackout** collapsed electrical grids, co
    - `ReplicatedStorage/Shared/DataSchema` ← `src/ReplicatedStorage/Shared/DataSchema.lua`
    - `ReplicatedStorage/Shared/ItemDefinitions` ← `src/ReplicatedStorage/Shared/ItemDefinitions.lua`
    - `ReplicatedStorage/Shared/SurvivalConfig` ← `src/ReplicatedStorage/Shared/SurvivalConfig.lua`
+   - `ReplicatedStorage/Shared/RecipeDefinitions` ← `src/ReplicatedStorage/Shared/RecipeDefinitions.lua`
 4. Create a `Services` folder inside `ServerScriptService`, and add these ModuleScripts:
    - `ServerScriptService/Services/PlayerDataService` ← `src/ServerScriptService/Services/PlayerDataService.lua`
    - `ServerScriptService/Services/SurvivalService` ← `src/ServerScriptService/Services/SurvivalService.lua`
    - `ServerScriptService/Services/InventoryService` ← `src/ServerScriptService/Services/InventoryService.lua`
    - `ServerScriptService/Services/LootService` ← `src/ServerScriptService/Services/LootService.lua`
+   - `ServerScriptService/Services/EquipmentService` ← `src/ServerScriptService/Services/EquipmentService.lua`
+   - `ServerScriptService/Services/GatheringService` ← `src/ServerScriptService/Services/GatheringService.lua`
+   - `ServerScriptService/Services/CraftingService` ← `src/ServerScriptService/Services/CraftingService.lua`
 5. Add this Script directly under `ServerScriptService`:
    - `ServerScriptService/ServerBootstrap` ← `src/ServerScriptService/ServerBootstrap.lua`
-6. Open each `.lua` file in this repository and paste its contents into the matching Studio object. `PlayerDataService`, `SurvivalService`, `InventoryService`, `LootService`, `GameConfig`, `DataSchema`, `ItemDefinitions`, and `SurvivalConfig` are **ModuleScripts**; `ServerBootstrap` is a **Script**.
-7. Create a folder named `LootContainers` inside `Workspace`. Place Parts inside it and, via the command bar or a test script, call `LootService.RegisterContainer(part, "GasStationCache", "cache_gas_1")` to mark lootable parts. (A world-setup script arrives in Stage 4.)
+6. All service modules and shared modules are **ModuleScripts**; only `ServerBootstrap` is a **Script**. Paste each repository file into its matching Studio object.
+7. Create a folder named `LootContainers` inside `Workspace` for lootable parts (see Stage 2 README history in commit log). Resource nodes and crafting stations are tagged via `CollectionService`:
+   - Resource node: call `GatheringService.RegisterNode(part, "Tree")` — valid types: `Tree`, `ScrapPile`, `BerryBush`, `ClothPile`, `RuinCar`.
+   - Crafting station: `CollectionService:AddTag(part, "CraftingStation")` and `part:SetAttribute("StationType", "Workbench")` — valid types: `Workbench`, `MedicStation`.
 
-## What Stage 2 implements
+## What Stage 3 implements
 
-- **Survival:** health, hunger, thirst, stamina, body temperature, radiation, bleeding, and infection, all server-authoritative, persisted in the schema, ticking at a fixed rate. Deaths trigger a timed respawn with health restoration.
-- **Items:** 25 items across food, water, medical, materials, tools, and collectibles, defined centrally in `ItemDefinitions` with stable ids, weights, stack limits, rarity, and consumption effects.
-- **Inventory:** 24 slots / 60 weight capacity, stack filling, server-validated add/remove/consume, and snapshot broadcasts to the owning client over `InventoryRemote`.
-- **Loot:** five weighted loot tables, distance-validated searching, per-player per-container cooldowns, and grant messages over `LootRemote`.
-- **Persistence:** survival stats and inventory slots are normalized and saved with the profile.
+- **Crafting:** 9 recipes (bandage, rope, torch, nails, purified water, salvaged knife, ragged coat, scrap vest, first aid kit) with station, level, and unlock requirements; atomic ingredient consumption; timed crafts with cancel/refund; output refused and refunded when inventory is full — no duplication paths.
+- **Equipment:** Body / MainHand / OffHand slots, category validation, durability wear on use, break-on-zero with client notification, repair using ScrapMetal, and tool-level lookups feeding the gathering system.
+- **Gathering:** 5 resource node types tagged via CollectionService, distance-validated harvests, tool-level requirements, per-player per-node cooldowns, timed harvests, and small experience grants.
+- **Items:** new Torch, SalvagedKnife, RaggedCoat, ScrapVest items; durability and equipment stats now defined centrally for tools, weapons, armor, and clothing.
+- **Persistence:** equipment, durability, and crafted-recipe unlocks persist in the normalized schema.
 
-## Stage 2 test checklist
+## Stage 3 test checklist
 
-Complete these in Studio before moving to Stage 3. Previous Stage 1 checks must also pass.
+Complete these in Studio before moving to Stage 4. Stages 1–2 checks must also pass.
 
-- [ ] Server prints `AFTERZERO Stage 2 server services initialized.`
-- [ ] A joining player's attributes show Hunger/Thirst/Stamina/BodyTemperature/Radiation values.
-- [ ] Hunger and thirst decay over several minutes; no errors in server Output.
-- [ ] Command-bar test: `require(game.ServerScriptService.Services.InventoryService):AddItem(player, "CannedBeans", 5)` adds five items and the client receives an `InventoryUpdated` event.
-- [ ] Consume a canned beans item server-side; hunger increases and the item count decreases by one.
-- [ ] Consume murky water repeatedly; infection can occur; antibiotics cure it (server-side calls).
-- [ ] Set a part as a loot container, search it via remote with two players; second search within 60 seconds is rejected with `ContainerOnCooldown`.
-- [ ] Fill the inventory past 24 slots; `AddItem` returns `InventoryFull` instead of creating ghost slots.
-- [ ] Save, leave, and rejoin: inventory slots and survival stats persist exactly.
-- [ ] Starve/dehydrate a test player; health drains and the death → respawn flow works.
+- [ ] Server prints `AFTERZERO Stage 3 server services initialized.`
+- [ ] Tag a part as a Tree node and harvest it: wood is granted, harvest takes ~2.5 seconds, second harvest within 45 seconds is rejected with `NodeOnCooldown`.
+- [ ] Harvest a RuinCar node with empty hands: rejected with `ToolRequired`; equip a Crowbar (tool level 2) and harvest succeeds.
+- [ ] Craft a Bandage from 2 Cloth: cloth is consumed, bandage appears after 3 seconds; craft output is refused and refunded when inventory is deliberately full.
+- [ ] Attempt a Workbench recipe at hand distance from a station: rejected with `WrongStation`; stand at a tagged Workbench and it succeeds.
+- [ ] Cancel a timed craft: ingredients are refunded exactly once.
+- [ ] Start two crafts simultaneously: second is rejected with `AlreadyCrafting`.
+- [ ] Equip SalvagedKnife to MainHand: inventory loses one knife, equipment slot shows it; unequip returns it.
+- [ ] Apply durability wear repeatedly: item breaks at zero and an `ItemBroke` event fires to the client.
+- [ ] Repair a worn item with one ScrapMetal: durability restores to max.
+- [ ] Save, leave, rejoin: equipment slots, durability values, and crafted-recipe unlocks persist exactly.
+- [ ] Level gate: on a fresh level-1 profile, ScrapVest crafting is rejected with `LevelTooLow`.
 
 ## Architecture notes
 
 - All player data mutations happen on the server; clients never write profiles directly.
 - `PlayerDataService.GetData(player)` returns the live profile table for server systems.
 - Data is normalized against `DataSchema` before every save and load, with a session lease preventing concurrent servers from overwriting the same profile.
-- Survival, inventory, and loot all read from the same live profile, so a save snapshot always contains a consistent world state for those systems.
-- Known limitation: UI is server-driven data only for now; client HUD controllers arrive in later stages. Remote payload shapes are already final.
-- Known limitation: the survival tick runs at a fixed 4-second interval for all tracked players in one pass (cheap, but attribute updates land in visible steps; acceptable and intended).
+- Crafting, gathering, and equipment all mutate the same live profile through `InventoryService`, so saves are always consistent across systems.
+- Station and node instances sent by clients are re-validated server-side (tag check, distance check, attribute check) before use.
+- Known limitation: no client UI yet; remote event payloads are final-shaped for the Stage 10 UI. Interaction prompts arrive with the Stage 4 world scripts.
+- Known limitation: gathering does not yet consume stamina or apply durability wear; those hooks land with Stage 6 combat integration to avoid double-wiring.
 
 ## License
 
