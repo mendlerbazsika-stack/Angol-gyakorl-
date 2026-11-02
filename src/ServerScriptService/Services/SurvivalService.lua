@@ -18,6 +18,8 @@ local started = false
 local tracked: {[Player]: boolean} = {}
 local SurvivalRemote: RemoteEvent
 
+local DownedHealth = 30 -- health restored when revived by a party member
+
 local function clamp(value: number, minimum: number, maximum: number): number
 	return math.clamp(value, minimum, maximum)
 end
@@ -54,6 +56,7 @@ local function initStats(player: Player)
 		}
 	end
 	tracked[player] = true
+	player:SetAttribute("IsDowned", false)
 	setStats(player, data.survival)
 end
 
@@ -71,6 +74,7 @@ local function handleDeath(player: Player)
 	local data = PlayerDataService.GetData(player)
 	if not data or not data.survival or data.survival.dead then return end
 	data.survival.dead = true
+	player:SetAttribute("IsDowned", false)
 	if SurvivalRemote then
 		SurvivalRemote:FireClient(player, "Died", { respawnSeconds = SurvivalConfig.RespawnSeconds })
 	end
@@ -82,6 +86,95 @@ local function handleDeath(player: Player)
 			player:LoadCharacter()
 		end
 	end)
+end
+
+-- Called when combat reduces health to zero: enters the downed state instead
+-- of dying outright if the player is in a party, so members can revive them.
+-- Solo players skip straight to the normal death flow.
+local function handleDowned(player: Player)
+	local PartyService = require(Services:WaitForChild("PartyService"))
+	local party = PartyService.GetParty(player)
+
+	if not party or #party.members <= 1 then
+		handleDeath(player)
+		return
+	end
+
+	local data = PlayerDataService.GetData(player)
+	if not data or not data.survival then
+		handleDeath(player)
+		return
+	end
+
+	data.survival.dead = true
+	player:SetAttribute("IsDowned", true)
+
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		-- Keep the body alive but immobile until revived or the timer expires.
+		humanoid.Health = 1
+		humanoid.WalkSpeed = 0
+		humanoid.JumpHeight = 0
+	end
+
+	if SurvivalRemote then
+		SurvivalRemote:FireClient(player, "Downed", { reviveWindowSeconds = SurvivalConfig.RespawnSeconds * 3 })
+	end
+
+	task.delay(SurvivalConfig.RespawnSeconds * 3, function()
+		if player.Parent and data.survival and data.survival.dead and player:GetAttribute("IsDowned") == true then
+			-- Nobody revived in time: normal death flow.
+			player:SetAttribute("IsDowned", false)
+			SurvivalRemote:FireClient(player, "Died", { respawnSeconds = SurvivalConfig.RespawnSeconds })
+			task.delay(SurvivalConfig.RespawnSeconds, function()
+				if player.Parent and data.survival and data.survival.dead then
+					data.survival.health = SurvivalConfig.MaxHealth
+					data.survival.bleeding = false
+					data.survival.dead = false
+					player:LoadCharacter()
+				end
+			end)
+		end
+	end)
+end
+
+-- Revive entry point, called by PartyService after full validation.
+function SurvivalService.TryRevive(player: Player): boolean
+	local data = PlayerDataService.GetData(player)
+	if not data or not data.survival or not data.survival.dead then
+		return false
+	end
+	if player:GetAttribute("IsDowned") ~= true then
+		return false
+	end
+
+	data.survival.dead = false
+	data.survival.health = DownedHealth
+	player:SetAttribute("IsDowned", false)
+
+	local character = player.Character
+	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
+	if humanoid then
+		humanoid.WalkSpeed = 16
+		humanoid.JumpHeight = 7.2
+	end
+	setStats(player, data.survival)
+
+	if SurvivalRemote then
+		SurvivalRemote:FireClient(player, "Revived", { health = DownedHealth })
+	end
+
+	return true
+end
+
+function SurvivalService.EnterDownedOrDead(player: Player)
+	-- Public entry for CombatService when player health hits zero.
+	local data = PlayerDataService.GetData(player)
+	if not data or not data.survival or data.survival.dead then
+		return
+	end
+	handleDowned(player)
 end
 
 local function onTick()
@@ -99,7 +192,7 @@ local function onTick()
 		stats.bodyTemperature = clamp(stats.bodyTemperature + region.temperatureDeltaPerMinute * minutes, 0, SurvivalConfig.MaxBodyTemperature)
 		stats.radiation = clamp(stats.radiation + region.radiationRatePerMinute * minutes, 0, SurvivalConfig.MaxRadiation)
 		if stats.radiation > 0 and region.radiationRatePerMinute <= 0 then
-			stats.radiation = clamp(stats.radiation - SurvivalConfig.RadiationRecoveryPerMinute * minutes, 0, SurvivalConfig.MaxRadiation)
+			stats.radiation = clamp(stats.radiation - RadiationRecoveryPerMinutePlaceholder * minutes, 0, SurvivalConfig.MaxRadiation)
 		end
 
 		local damagePerMinute = 0
@@ -111,7 +204,7 @@ local function onTick()
 		if stats.infected then damagePerMinute += SurvivalConfig.InfectionHealthLossPerMinute end
 		stats.health = clamp(stats.health - damagePerMinute * minutes, 0, SurvivalConfig.MaxHealth)
 		setStats(player, stats)
-		if stats.health <= 0 then handleDeath(player) end
+		if stats.health <= 0 then handleDowned(player) end
 	end
 end
 
