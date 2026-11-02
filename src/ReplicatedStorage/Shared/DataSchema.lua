@@ -156,6 +156,7 @@ function DataSchema.CreateDefault()
 		inventory = {
 			slots = {},
 			equipment = {},
+			durability = {},
 			hotbar = {},
 		},
 
@@ -167,6 +168,7 @@ function DataSchema.CreateDefault()
 			},
 			activeQuests = {},
 			completedQuests = {},
+			craftedRecipes = {},
 			storyDecisions = {},
 			factionReputation = {},
 		},
@@ -203,6 +205,7 @@ function DataSchema.Normalize(raw: any)
 	local inventory = if typeof(raw.inventory) == "table" then raw.inventory else {}
 	data.inventory.slots = normalizeSlots(inventory.slots, 24)
 	data.inventory.equipment = copyStringMap(inventory.equipment, 30)
+	data.inventory.durability = copyNumberMap(inventory.durability, 0, 100)
 	data.inventory.hotbar = copyStringMap(inventory.hotbar, 10)
 
 	if raw.survival ~= nil then
@@ -213,6 +216,7 @@ function DataSchema.Normalize(raw: any)
 	data.progression.unlockedRegions = copyBooleanMap(progression.unlockedRegions)
 	data.progression.activeQuests = copyBooleanMap(progression.activeQuests)
 	data.progression.completedQuests = copyBooleanMap(progression.completedQuests)
+	data.progression.craftedRecipes = copyBooleanMap(progression.craftedRecipes)
 	data.progression.storyDecisions = copyStringMap(progression.storyDecisions, 100)
 	data.progression.factionReputation = copyNumberMap(
 		progression.factionReputation,
