@@ -8,17 +8,28 @@ export type ItemEffect = {
 	thirst: number?,
 	health: number?,
 	cureBleeding: boolean?,
+	infectionCure: boolean?,
+}
+
+export type EquipmentStats = {
+	damage: number?,
+	armor: number?,
+	coldProtection: number?,
+	radiationProtection: number?,
+	toolLevel: number?,
 }
 
 export type ItemDefinition = {
 	id: string,
 	name: string,
 	description: string,
-	category: string,
+	category: string, -- Food, Water, Medical, Tool, CraftingMaterial, Weapon, Ammo, Armor, Clothing, Collectible
 	stackLimit: number,
 	weight: number,
 	rarity: string,
+	durability: number?, -- max durability if the item is a tool, weapon, or gear
 	effect: ItemEffect?,
+	equipment: EquipmentStats?,
 }
 
 local items: {[string]: ItemDefinition} = {
@@ -36,7 +47,7 @@ local items: {[string]: ItemDefinition} = {
 	-- Medical
 	Bandage = { id = "Bandage", name = "Bandage", description = "Stops bleeding and patches minor wounds.", category = "Medical", stackLimit = 15, weight = 0.1, rarity = "Common", effect = { health = 5, cureBleeding = true } },
 	FirstAidKit = { id = "FirstAidKit", name = "First Aid Kit", description = "A proper medical kit from a hospital.", category = "Medical", stackLimit = 5, weight = 1.2, rarity = "Rare", effect = { health = 40, cureBleeding = true } },
-	Antibiotics = { id = "Antibiotics", name = "Antibiotics", description = "Fights off infection from bad water.", category = "Medical", stackLimit = 10, weight = 0.1, rarity = "Rare", effect = { health = 10 } },
+	Antibiotics = { id = "Antibiotics", name = "Antibiotics", description = "Fights off infection from bad water.", category = "Medical", stackLimit = 10, weight = 0.1, rarity = "Rare", effect = { health = 10, infectionCure = true } },
 	Painkillers = { id = "Painkillers", name = "Painkillers", description = "Blunts the pain, restores a little function.", category = "Medical", stackLimit = 10, weight = 0.1, rarity = "Common", effect = { health = 8 } },
 
 	-- Crafting materials
@@ -49,9 +60,15 @@ local items: {[string]: ItemDefinition} = {
 	Rope = { id = "Rope", name = "Rope", description = "Fiber rope, still strong.", category = "CraftingMaterial", stackLimit = 20, weight = 0.3, rarity = "Common" },
 	Nails = { id = "Nails", name = "Nails", description = "A fistful of rusty nails.", category = "CraftingMaterial", stackLimit = 100, weight = 0.05, rarity = "Common" },
 
-	-- Tools
-	Crowbar = { id = "Crowbar", name = "Crowbar", description = "Opens doors, crates, and arguments.", category = "Tool", stackLimit = 3, weight = 2.0, rarity = "Uncommon" },
+	-- Tools and weapons (Stage 3: durability and equipment stats)
+	Crowbar = { id = "Crowbar", name = "Crowbar", description = "Opens doors, crates, and arguments.", category = "Tool", stackLimit = 3, weight = 2.0, rarity = "Uncommon", durability = 100, equipment = { toolLevel = 2 } },
 	Flashlight = { id = "Flashlight", name = "Flashlight", description = "Half a charge left. Better than nothing.", category = "Tool", stackLimit = 2, weight = 0.5, rarity = "Common" },
+	Torch = { id = "Torch", name = "Torch", description = "Wrapped rag on a stick. Keeps the dark honest.", category = "Tool", stackLimit = 5, weight = 0.4, rarity = "Common", durability = 40 },
+	SalvagedKnife = { id = "SalvagedKnife", name = "Salvaged Knife", description = "Ground-down steel with a wrapped grip. It cuts.", category = "Weapon", stackLimit = 3, weight = 0.6, rarity = "Common", durability = 60, equipment = { damage = 12 } },
+
+	-- Clothing and armor (Stage 3)
+	RaggedCoat = { id = "RaggedCoat", name = "Ragged Coat", description = "Layered rags. Ugly, but the wind slows down.", category = "Clothing", stackLimit = 1, weight = 1.5, rarity = "Common", durability = 50, equipment = { coldProtection = 0.25 } },
+	ScrapVest = { id = "ScrapVest", name = "Scrap Vest", description = "Plates of scrap bolted to a vest frame.", category = "Armor", stackLimit = 1, weight = 4.0, rarity = "Uncommon", durability = 80, equipment = { armor = 10 } },
 
 	-- Collectibles
 	BlackoutRecording = { id = "BlackoutRecording", name = "Recovered Recording", description = "A data chip holding a voice from the day of the Blackout.", category = "Collectible", stackLimit = 5, weight = 0.05, rarity = "Rare" },
