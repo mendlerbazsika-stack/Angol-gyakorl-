@@ -76,10 +76,17 @@ local function consumeIngredients(player: Player, recipe: any): (boolean, string
 	return true, nil
 end
 
-local function refundIngredients(player: Player, recipe: any)
+local function refundIngredients(player: Player, recipe: any): boolean
+	-- Returns false if any ingredient could not be fully returned (for
+	-- example, inventory full); the caller logs a warning in that case.
+	local allRefunded = true
 	for _, ingredient in ipairs(recipe.ingredients) do
-		InventoryService.AddItem(player, ingredient.id, ingredient.count)
+		local ok = InventoryService.AddItem(player, ingredient.id, ingredient.count)
+		if not ok then
+			allRefunded = false
+		end
 	end
+	return allRefunded
 end
 
 function CraftingService.Craft(player: Player, recipeId: string, stationPart: BasePart?): (boolean, string?)
@@ -170,10 +177,9 @@ function CraftingService.Cancel(player: Player): (boolean, string?)
 	end
 
 	activeCrafts[player] = nil
-	local refunded = refundIngredients(player, recipe)
-	if not refunded then
-		-- If a refund fails, log it; ingredients were consumed at craft start.
-		warn(("AFTERZERO: refund failed after cancel for %s"):format(player.Name))
+	local allRefunded = refundIngredients(player, recipe)
+	if not allRefunded then
+		warn(("AFTERZERO: partial refund after cancel for %s (inventory likely full)"):format(player.Name))
 	end
 
 	if CraftingRemote then
