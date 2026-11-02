@@ -1,6 +1,6 @@
 --!strict
 -- AFTERZERO: THE LAST CIVILIZATION
--- Server bootstrap. Starts all services in a reliable dependency order.
+-- Server bootstrap. Starts services in dependency order.
 
 local Services = script.Parent:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
@@ -10,8 +10,8 @@ local LootService = require(Services:WaitForChild("LootService"))
 local EquipmentService = require(Services:WaitForChild("EquipmentService"))
 local GatheringService = require(Services:WaitForChild("GatheringService"))
 local CraftingService = require(Services:WaitForChild("CraftingService"))
+local WorldService = require(Services:WaitForChild("WorldService"))
 
--- Dependency order: data first, then gameplay systems that read it.
 PlayerDataService.Start()
 SurvivalService.Start()
 InventoryService.Start()
@@ -19,5 +19,6 @@ LootService.Start()
 EquipmentService.Start()
 GatheringService.Start()
 CraftingService.Start()
+WorldService.Start()
 
-print("AFTERZERO Stage 3 server services initialized.")
+print("AFTERZERO Stage 4 server services initialized.")
