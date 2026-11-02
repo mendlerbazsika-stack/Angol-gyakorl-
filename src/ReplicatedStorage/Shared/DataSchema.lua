@@ -22,6 +22,14 @@ local function boundedInteger(value: any, defaultValue: number, minimum: number,
 	return math.clamp(math.floor(value), minimum, maximum)
 end
 
+local function boundedNumber(value: any, defaultValue: number, minimum: number, maximum: number): number
+	if not isFiniteNumber(value) then
+		return defaultValue
+	end
+
+	return math.clamp(value, minimum, maximum)
+end
+
 local function copyNumberMap(source: any, minimum: number, maximum: number): {[string]: number}
 	local result: {[string]: number} = {}
 
@@ -111,6 +119,35 @@ local function normalizeSlots(source: any, maximumSlots: number): {any}
 	return result
 end
 
+-- Built structures: ordered array of { id, templateId, x, y, z, ry }.
+-- Owner userId is implied by the profile the record is saved in.
+local function normalizeStructures(source: any, maximumStructures: number): {any}
+	local result = {}
+
+	if typeof(source) ~= "table" then
+		return result
+	end
+
+	for index = 1, math.min(#source, maximumStructures) do
+		local record = source[index]
+		if typeof(record) == "table"
+			and typeof(record.id) == "string" and #record.id <= 100
+			and typeof(record.templateId) == "string" and #record.templateId <= 100
+			and isFiniteNumber(record.x) and isFiniteNumber(record.y) and isFiniteNumber(record.z) then
+			table.insert(result, {
+				id = record.id,
+				templateId = record.templateId,
+				x = boundedNumber(record.x, 0, -5000, 5000),
+				y = boundedNumber(record.y, 1, 0.5, 200),
+				z = boundedNumber(record.z, 0, -5000, 5000),
+				ry = boundedNumber(record.ry, 0, -math.pi, math.pi),
+			})
+		end
+	end
+
+	return result
+end
+
 local function normalizeSurvival(source: any): any
 	local defaults = {
 		health = 100,
@@ -162,6 +199,10 @@ function DataSchema.CreateDefault()
 
 		survival = normalizeSurvival(nil),
 
+		structures = {
+			built = {},
+		},
+
 		progression = {
 			unlockedRegions = {
 				GreywoodCounty = true,
@@ -212,6 +253,9 @@ function DataSchema.Normalize(raw: any)
 	if raw.survival ~= nil then
 		data.survival = normalizeSurvival(raw.survival)
 	end
+
+	local structures = if typeof(raw.structures) == "table" then raw.structures else {}
+	data.structures.built = normalizeStructures(structures.built, 40)
 
 	local progression = if typeof(raw.progression) == "table" then raw.progression else {}
 	data.progression.unlockedRegions = copyBooleanMap(progression.unlockedRegions)
