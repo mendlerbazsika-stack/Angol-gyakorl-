@@ -17,6 +17,10 @@ export type EquipmentStats = {
 	coldProtection: number?,
 	radiationProtection: number?,
 	toolLevel: number?,
+	ranged: boolean?,
+	fireRateSeconds: number?,
+	rangeStuds: number?,
+	ammoId: string?,
 }
 
 export type ItemDefinition = {
@@ -38,6 +42,7 @@ local items: {[string]: ItemDefinition} = {
 	PreservedRation = { id = "PreservedRation", name = "Preserved Ration", description = "Dense military ration block. Bland but reliable.", category = "Food", stackLimit = 10, weight = 0.4, rarity = "Uncommon", effect = { hunger = 40 } },
 	ForagedBerries = { id = "ForagedBerries", name = "Foraged Berries", description = "Wild berries picked near Greywood. Probably safe.", category = "Food", stackLimit = 20, weight = 0.1, rarity = "Common", effect = { hunger = 10, thirst = 5 } },
 	TrailSnack = { id = "TrailSnack", name = "Trail Snack", description = "Crushed crackers and dried fruit.", category = "Food", stackLimit = 15, weight = 0.2, rarity = "Common", effect = { hunger = 15 } },
+	RawMeat = { id = "RawMeat", name = "Raw Meat", description = "Fresh from a feral dog. Cook it before eating... if you can.", category = "Food", stackLimit = 10, weight = 0.5, rarity = "Common", effect = { hunger = 12, health = -4 } },
 
 	-- Water
 	WaterBottleClean = { id = "WaterBottleClean", name = "Sealed Water Bottle", description = "Factory-sealed water. Increasingly rare.", category = "Water", stackLimit = 10, weight = 0.7, rarity = "Uncommon", effect = { thirst = 35 } },
@@ -60,13 +65,18 @@ local items: {[string]: ItemDefinition} = {
 	Rope = { id = "Rope", name = "Rope", description = "Fiber rope, still strong.", category = "CraftingMaterial", stackLimit = 20, weight = 0.3, rarity = "Common" },
 	Nails = { id = "Nails", name = "Nails", description = "A fistful of rusty nails.", category = "CraftingMaterial", stackLimit = 100, weight = 0.05, rarity = "Common" },
 
-	-- Tools and weapons (Stage 3: durability and equipment stats)
+	-- Tools and weapons
 	Crowbar = { id = "Crowbar", name = "Crowbar", description = "Opens doors, crates, and arguments.", category = "Tool", stackLimit = 3, weight = 2.0, rarity = "Uncommon", durability = 100, equipment = { toolLevel = 2 } },
 	Flashlight = { id = "Flashlight", name = "Flashlight", description = "Half a charge left. Better than nothing.", category = "Tool", stackLimit = 2, weight = 0.5, rarity = "Common" },
 	Torch = { id = "Torch", name = "Torch", description = "Wrapped rag on a stick. Keeps the dark honest.", category = "Tool", stackLimit = 5, weight = 0.4, rarity = "Common", durability = 40 },
 	SalvagedKnife = { id = "SalvagedKnife", name = "Salvaged Knife", description = "Ground-down steel with a wrapped grip. It cuts.", category = "Weapon", stackLimit = 3, weight = 0.6, rarity = "Common", durability = 60, equipment = { damage = 12 } },
+	RebarClub = { id = "RebarClub", name = "Rebar Club", description = "A length of rebar with a cloth grip. Heavy, honest, final.", category = "Weapon", stackLimit = 1, weight = 2.5, rarity = "Uncommon", durability = 70, equipment = { damage = 18 } },
+	ScrapPistol = { id = "ScrapPistol", name = "Scrap Pistol", description = "A workshop-built single-shot pistol. Loud, crude, effective.", category = "Weapon", stackLimit = 1, weight = 1.2, rarity = "Rare", durability = 90, equipment = { damage = 14, ranged = true, fireRateSeconds = 1.2, rangeStuds = 90, ammoId = "PistolRounds" } },
 
-	-- Clothing and armor (Stage 3)
+	-- Ammunition
+	PistolRounds = { id = "PistolRounds", name = "Pistol Rounds", description = "Hand-loaded rounds in a worn pouch.", category = "Ammo", stackLimit = 60, weight = 0.03, rarity = "Common" },
+
+	-- Clothing and armor
 	RaggedCoat = { id = "RaggedCoat", name = "Ragged Coat", description = "Layered rags. Ugly, but the wind slows down.", category = "Clothing", stackLimit = 1, weight = 1.5, rarity = "Common", durability = 50, equipment = { coldProtection = 0.25 } },
 	ScrapVest = { id = "ScrapVest", name = "Scrap Vest", description = "Plates of scrap bolted to a vest frame.", category = "Armor", stackLimit = 1, weight = 4.0, rarity = "Uncommon", durability = 80, equipment = { armor = 10 } },
 
