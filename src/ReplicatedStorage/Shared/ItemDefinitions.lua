@@ -64,6 +64,7 @@ local items: {[string]: ItemDefinition} = {
 	PlasticScrap = { id = "PlasticScrap", name = "Plastic Scrap", description = "Moldable debris from packaging.", category = "CraftingMaterial", stackLimit = 50, weight = 0.1, rarity = "Common" },
 	Rope = { id = "Rope", name = "Rope", description = "Fiber rope, still strong.", category = "CraftingMaterial", stackLimit = 20, weight = 0.3, rarity = "Common" },
 	Nails = { id = "Nails", name = "Nails", description = "A fistful of rusty nails.", category = "CraftingMaterial", stackLimit = 100, weight = 0.05, rarity = "Common" },
+	GasolineCan = { id = "GasolineCan", name = "Gasoline Can", description = "Siphoned fuel in a dented jerry can.", category = "CraftingMaterial", stackLimit = 5, weight = 3.0, rarity = "Rare" },
 
 	-- Tools and weapons
 	Crowbar = { id = "Crowbar", name = "Crowbar", description = "Opens doors, crates, and arguments.", category = "Tool", stackLimit = 3, weight = 2.0, rarity = "Uncommon", durability = 100, equipment = { toolLevel = 2 } },
