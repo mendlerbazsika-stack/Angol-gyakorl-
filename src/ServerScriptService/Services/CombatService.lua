@@ -16,6 +16,8 @@ local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
 local InventoryService = require(Services:WaitForChild("InventoryService"))
 local EquipmentService = require(Services:WaitForChild("EquipmentService"))
 local EnemyService = require(Services:WaitForChild("EnemyService"))
+local PartyService = require(Services:WaitForChild("PartyService"))
+local SurvivalService = require(Services:WaitForChild("SurvivalService"))
 
 local CombatService = {}
 local started = false
@@ -67,11 +69,8 @@ local function applyPlayerDamage(targetPlayer: Player, rawDamage: number, attack
 	end
 
 	if data.survival.health <= 0 then
-		local character = targetPlayer.Character
-		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-		if humanoid then
-			humanoid.Health = 0
-		end
+		-- Downed (party) or death flow is owned by SurvivalService.
+		SurvivalService.EnterDownedOrDead(targetPlayer)
 	end
 end
 
@@ -151,7 +150,7 @@ function CombatService.MeleeAttack(player: Player, targetPart: BasePart?): (bool
 
 	local targetPlayer = Players:GetPlayerFromCharacter(targetPart.Parent)
 	if targetPlayer then
-		-- PvP is disabled by default in Greywood County; Stage 7 adds zones.
+		-- PvP is disabled by default; Stage 9 region rules may open zones.
 		return false, "PvPDisabled"
 	end
 
