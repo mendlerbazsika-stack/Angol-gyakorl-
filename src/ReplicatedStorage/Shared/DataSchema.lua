@@ -89,6 +89,58 @@ local function copyStringMap(source: any, maximumEntries: number): {[string]: st
 	return result
 end
 
+-- Inventory slots: ordered array of { id = string, count = number }.
+local function normalizeSlots(source: any, maximumSlots: number): {any}
+	local result = {}
+
+	if typeof(source) ~= "table" then
+		return result
+	end
+
+	for index = 1, math.min(#source, maximumSlots) do
+		local slot = source[index]
+		if typeof(slot) == "table" and typeof(slot.id) == "string"
+			and #slot.id <= 100 and isFiniteNumber(slot.count) then
+			local count = math.clamp(math.floor(slot.count), 0, 9999)
+			if count > 0 then
+				table.insert(result, { id = slot.id, count = count })
+			end
+		end
+	end
+
+	return result
+end
+
+local function normalizeSurvival(source: any): any
+	local defaults = {
+		health = 100,
+		hunger = 100,
+		thirst = 100,
+		stamina = 100,
+		bodyTemperature = 60,
+		radiation = 0,
+		bleeding = false,
+		infected = false,
+		dead = false,
+	}
+
+	if typeof(source) ~= "table" then
+		return defaults
+	end
+
+	return {
+		health = boundedInteger(source.health, 100, 0, 100),
+		hunger = boundedInteger(source.hunger, 100, 0, 100),
+		thirst = boundedInteger(source.thirst, 100, 0, 100),
+		stamina = boundedInteger(source.stamina, 100, 0, 100),
+		bodyTemperature = boundedInteger(source.bodyTemperature, 60, 0, 100),
+		radiation = boundedInteger(source.radiation, 0, 0, 100),
+		bleeding = if typeof(source.bleeding) == "boolean" then source.bleeding else false,
+		infected = if typeof(source.infected) == "boolean" then source.infected else false,
+		dead = false, -- never persist dead state; a fresh session always spawns alive
+	}
+end
+
 function DataSchema.CreateDefault()
 	return {
 		schemaVersion = GameConfig.SchemaVersion,
@@ -102,10 +154,12 @@ function DataSchema.CreateDefault()
 		},
 
 		inventory = {
-			items = {},
+			slots = {},
 			equipment = {},
 			hotbar = {},
 		},
+
+		survival = normalizeSurvival(nil),
 
 		progression = {
 			unlockedRegions = {
@@ -147,9 +201,13 @@ function DataSchema.Normalize(raw: any)
 	data.character.skills = copyNumberMap(character.skills, 0, 100)
 
 	local inventory = if typeof(raw.inventory) == "table" then raw.inventory else {}
-	data.inventory.items = copyNumberMap(inventory.items, 0, 9999)
+	data.inventory.slots = normalizeSlots(inventory.slots, 24)
 	data.inventory.equipment = copyStringMap(inventory.equipment, 30)
 	data.inventory.hotbar = copyStringMap(inventory.hotbar, 10)
+
+	if raw.survival ~= nil then
+		data.survival = normalizeSurvival(raw.survival)
+	end
 
 	local progression = if typeof(raw.progression) == "table" then raw.progression else {}
 	data.progression.unlockedRegions = copyBooleanMap(progression.unlockedRegions)
