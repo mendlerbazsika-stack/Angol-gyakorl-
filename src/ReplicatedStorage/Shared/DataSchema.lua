@@ -168,6 +168,7 @@ function DataSchema.CreateDefault()
 			},
 			activeQuests = {},
 			completedQuests = {},
+			questObjectives = {},
 			craftedRecipes = {},
 			storyDecisions = {},
 			factionReputation = {},
@@ -216,6 +217,7 @@ function DataSchema.Normalize(raw: any)
 	data.progression.unlockedRegions = copyBooleanMap(progression.unlockedRegions)
 	data.progression.activeQuests = copyBooleanMap(progression.activeQuests)
 	data.progression.completedQuests = copyBooleanMap(progression.completedQuests)
+	data.progression.questObjectives = copyBooleanMap(progression.questObjectives)
 	data.progression.craftedRecipes = copyBooleanMap(progression.craftedRecipes)
 	data.progression.storyDecisions = copyStringMap(progression.storyDecisions, 100)
 	data.progression.factionReputation = copyNumberMap(
