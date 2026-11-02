@@ -88,9 +88,8 @@ local function handleDeath(player: Player)
 	end)
 end
 
--- Called when combat reduces health to zero: enters the downed state instead
--- of dying outright if the player is in a party, so members can revive them.
--- Solo players skip straight to the normal death flow.
+-- Called when health hits zero: party members enter the downed state so
+-- teammates can revive them; solo players go straight to the death flow.
 local function handleDowned(player: Player)
 	local PartyService = require(Services:WaitForChild("PartyService"))
 	local party = PartyService.GetParty(player)
@@ -118,15 +117,18 @@ local function handleDowned(player: Player)
 		humanoid.JumpHeight = 0
 	end
 
+	local reviveWindow = SurvivalConfig.RespawnSeconds * 3
 	if SurvivalRemote then
-		SurvivalRemote:FireClient(player, "Downed", { reviveWindowSeconds = SurvivalConfig.RespawnSeconds * 3 })
+		SurvivalRemote:FireClient(player, "Downed", { reviveWindowSeconds = reviveWindow })
 	end
 
-	task.delay(SurvivalConfig.RespawnSeconds * 3, function()
+	task.delay(reviveWindow, function()
 		if player.Parent and data.survival and data.survival.dead and player:GetAttribute("IsDowned") == true then
 			-- Nobody revived in time: normal death flow.
 			player:SetAttribute("IsDowned", false)
-			SurvivalRemote:FireClient(player, "Died", { respawnSeconds = SurvivalConfig.RespawnSeconds })
+			if SurvivalRemote then
+				SurvivalRemote:FireClient(player, "Died", { respawnSeconds = SurvivalConfig.RespawnSeconds })
+			end
 			task.delay(SurvivalConfig.RespawnSeconds, function()
 				if player.Parent and data.survival and data.survival.dead then
 					data.survival.health = SurvivalConfig.MaxHealth
@@ -168,8 +170,8 @@ function SurvivalService.TryRevive(player: Player): boolean
 	return true
 end
 
+-- Public entry for CombatService when player health hits zero.
 function SurvivalService.EnterDownedOrDead(player: Player)
-	-- Public entry for CombatService when player health hits zero.
 	local data = PlayerDataService.GetData(player)
 	if not data or not data.survival or data.survival.dead then
 		return
@@ -192,7 +194,7 @@ local function onTick()
 		stats.bodyTemperature = clamp(stats.bodyTemperature + region.temperatureDeltaPerMinute * minutes, 0, SurvivalConfig.MaxBodyTemperature)
 		stats.radiation = clamp(stats.radiation + region.radiationRatePerMinute * minutes, 0, SurvivalConfig.MaxRadiation)
 		if stats.radiation > 0 and region.radiationRatePerMinute <= 0 then
-			stats.radiation = clamp(stats.radiation - RadiationRecoveryPerMinutePlaceholder * minutes, 0, SurvivalConfig.MaxRadiation)
+			stats.radiation = clamp(stats.radiation - SurvivalConfig.RadiationRecoveryPerMinute * minutes, 0, SurvivalConfig.MaxRadiation)
 		end
 
 		local damagePerMinute = 0
