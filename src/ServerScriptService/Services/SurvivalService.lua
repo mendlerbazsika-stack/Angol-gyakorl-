@@ -6,19 +6,18 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local GameConfig = require(Shared:WaitForChild("GameConfig"))
 local SurvivalConfig = require(Shared:WaitForChild("SurvivalConfig"))
 
-local ServerScriptService = game:GetService("ServerScriptService")
 local Services = ServerScriptService:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
 
 local SurvivalService = {}
 local started = false
 local tracked: {[Player]: boolean} = {}
-local sprinting: {[Player]: boolean} = {}
 
 local SurvivalRemote: RemoteEvent
 
@@ -37,11 +36,11 @@ end
 local function setStats(player: Player, stats)
 	local character = player.Character
 	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
-	if not humanoid then
-		return
-	end
 
-	humanoid.Health = clamp(stats.health, 0, SurvivalConfig.MaxHealth)
+	-- Humanoid health mirrors our authoritative health stat when a character exists.
+	if humanoid and math.abs(humanoid.Health - stats.health) > 0.5 then
+		humanoid.Health = clamp(stats.health, 0, SurvivalConfig.MaxHealth)
+	end
 
 	player:SetAttribute("Hunger", math.floor(stats.hunger))
 	player:SetAttribute("Thirst", math.floor(stats.thirst))
@@ -64,7 +63,7 @@ local function initStats(player: Player)
 			hunger = SurvivalConfig.MaxHunger,
 			thirst = SurvivalConfig.MaxThirst,
 			stamina = SurvivalConfig.MaxStamina,
-			bodyTemperature = 60, -- comfortable
+			bodyTemperature = 60,
 			radiation = 0,
 			bleeding = false,
 			infected = false,
@@ -73,9 +72,6 @@ local function initStats(player: Player)
 	end
 
 	tracked[player] = true
-	sprinting[player] = false
-
-	local character = player.Character or player.CharacterAdded:Wait()
 	setStats(player, data.survival)
 end
 
@@ -86,21 +82,6 @@ local function getRegionName(player: Player): string
 		return attribute
 	end
 	return "GreywoodCounty"
-end
-
-local function onCharacterAdded(player: Player, character: Model)
-	local data = PlayerDataService.GetData(player)
-	if not data or not data.survival then
-		return
-	end
-
-	-- Respawn restores health but keeps hunger/thirst pressure; death is
-	-- designed to be a setback, not a full reset.
-	data.survival.health = SurvivalConfig.MaxHealth
-	data.survival.dead = false
-	setStats(player, data.survival)
-
-	character:PivotTo(spawnPosition or CFrame.new(0, 5, 0))
 end
 
 local function handleDeath(player: Player)
@@ -118,19 +99,19 @@ local function handleDeath(player: Player)
 
 	task.delay(SurvivalConfig.RespawnSeconds, function()
 		if player.Parent and data.survival and data.survival.dead then
-			local character = player.Character
-			if character then
-				character:BreakJoints()
-			else
-				player:LoadCharacter()
-			end
+			data.survival.health = SurvivalConfig.MaxHealth
+			data.survival.bleeding = false
+			player:LoadCharacter()
 		end
 	end)
 end
 
-local function onHeartbeat(deltaTime: number)
-	for player, isTracked in pairs(tracked) do
-		if not isTracked or not player.Parent then
+local function onTick()
+	local deltaTime = SurvivalConfig.TickIntervalSeconds
+	local minutes = deltaTime / 60
+
+	for player in pairs(tracked) do
+		if not player.Parent then
 			continue
 		end
 
@@ -140,19 +121,15 @@ local function onHeartbeat(deltaTime: number)
 			continue
 		end
 
-		local minutes = deltaTime / 60
+		if stats.dead then
+			continue
+		end
+
 		local region = SurvivalConfig.Regions[getRegionName(player)]
 
 		-- Hunger and thirst decay
 		stats.hunger = clamp(stats.hunger - SurvivalConfig.HungerDecayPerMinute * minutes, 0, SurvivalConfig.MaxHunger)
 		stats.thirst = clamp(stats.thirst - SurvivalConfig.ThirstDecayPerMinute * minutes, 0, SurvivalConfig.MaxThirst)
-
-		-- Stamina
-		if sprinting[player] then
-			stats.stamina = clamp(stats.stamina - SurvivalConfig.SprintStaminaDrainPerSecond * deltaTime, 0, SurvivalConfig.MaxStamina)
-		else
-			stats.stamina = clamp(stats.stamina + SurvivalConfig.StaminaRegenPerSecond * deltaTime, 0, SurvivalConfig.MaxStamina)
-		end
 
 		-- Body temperature by region
 		stats.bodyTemperature = clamp(
@@ -161,17 +138,21 @@ local function onHeartbeat(deltaTime: number)
 			SurvivalConfig.MaxBodyTemperature
 		)
 
-		-- Radiation
+		-- Radiation accumulation and natural recovery
 		stats.radiation = clamp(
 			stats.radiation + region.radiationRatePerMinute * minutes,
 			0,
 			SurvivalConfig.MaxRadiation
 		)
-		if stats.radiation > 0 and region.radiationRatePerMinute == 0 then
-			stats.radiation = clamp(stats.radiation - SurvivalConfig.RadiationRecoveryPerMinute * minutes, 0, SurvivalConfig.MaxRadiation)
+		if stats.radiation > 0 and region.radiationRatePerMinute <= 0 then
+			stats.radiation = clamp(
+				stats.radiation - SurvivalConfig.RadiationRecoveryPerMinute * minutes,
+				0,
+				SurvivalConfig.MaxRadiation
+			)
 		end
 
-		-- Health damage from starvation, dehydration, cold, radiation, bleeding
+		-- Health damage from starvation, dehydration, cold, radiation, bleeding, infection
 		local damagePerMinute = 0
 		if stats.hunger <= 0 then
 			damagePerMinute += SurvivalConfig.StarvationHealthDamagePerMinute
@@ -198,10 +179,21 @@ local function onHeartbeat(deltaTime: number)
 
 		setStats(player, stats)
 
-		if stats.health <= 0 and not stats.dead then
+		if stats.health <= 0 then
 			handleDeath(player)
 		end
 	end
+end
+
+local function waitForDataThenTrack(player: Player)
+	task.spawn(function()
+		repeat
+			task.wait(0.5)
+		until player.Parent == nil or player:GetAttribute("DataReady") == true
+		if player.Parent and player:GetAttribute("DataReady") == true then
+			initStats(player)
+		end
+	end)
 end
 
 function SurvivalService.Start()
@@ -210,7 +202,6 @@ function SurvivalService.Start()
 	end
 	started = true
 
-	local ReplicatedStorage = game:GetService("ReplicatedStorage")
 	local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
 	if remotesFolder == nil then
 		remotesFolder = Instance.new("Folder")
@@ -221,41 +212,25 @@ function SurvivalService.Start()
 	if SurvivalRemote == nil then
 		SurvivalRemote = Instance.new("RemoteEvent")
 		SurvivalRemote.Name = "SurvivalRemote"
-		SurvivalRemote.Parent = respFolder
+		SurvivalRemote.Parent = remotesFolder
 	end
 
-	Players.PlayerAdded:Connect(function(player)
-		-- Wait until profile data is ready before initializing survival stats.
-		repeat
-			task.wait(0.5)
-		until player.Parent == nil or player:GetAttribute("DataReady") == true
-		if player.Parent then
-			initStats(player)
-		end
-	end)
-
+	Players.PlayerAdded:Connect(waitForDataThenTrack)
 	Players.PlayerRemoving:Connect(function(player)
 		tracked[player] = nil
-		sprinting[player] = nil
 	end)
 
 	for _, player in Players:GetPlayers() do
-		if player:GetAttribute("DataReady") == true then
-			initStats(player)
-		else
-			task.spawn(function()
-				repeat
-					task.wait(0.5)
-				until player.Parent == nil or player:GetAttribute("DataReady") == true
-				if player.Parent then
-					initStats(player)
-				end
-			end)
-		end
+		waitForDataThenTrack(player)
 	end
 
-	game:GetService("RunService").Heartbeat:Connect(function(deltaTime: number)
-		onHeartbeat(deltaTime)
+	-- Fixed-rate tick instead of a per-frame loop; stamina handles its own
+	-- frame updates in Stage 3 when sprint controls arrive.
+	task.spawn(function()
+		while started do
+			task.wait(SurvivalConfig.TickIntervalSeconds)
+			onTick()
+		end
 	end)
 end
 
