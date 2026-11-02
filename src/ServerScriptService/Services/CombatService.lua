@@ -67,9 +67,6 @@ local function applyPlayerDamage(targetPlayer: Player, rawDamage: number, attack
 	end
 
 	if data.survival.health <= 0 then
-		-- Death flows through SurvivalService's humanoid mirror on next tick;
-		-- handle immediate death through its respawn logic here.
-		local SurvivalService = require(Services:WaitForChild("SurvivalService"))
 		local character = targetPlayer.Character
 		local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
 		if humanoid then
@@ -102,25 +99,6 @@ local function cooldownViolated(player: Player, fireRateSeconds: number): boolea
 	end
 	lastAttack[player] = now
 	return false
-end
-
-local function findTargetPlayerAt(position: Vector3, ignore: Player, maxDistance: number): Player?
-	local closest: Player? = nil
-	local closestDistance = maxDistance
-	for _, candidate in ipairs(Players:GetPlayers()) do
-		if candidate ~= ignore then
-			local character = candidate.Character
-			local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
-			if root and root:IsA("BasePart") then
-				local distance = (root.Position - position).Magnitude
-				if distance <= closestDistance then
-					closestDistance = distance
-					closest = candidate
-				end
-			end
-		end
-	end
-	return closest
 end
 
 function CombatService.MeleeAttack(player: Player, targetPart: BasePart?): (boolean, string?)
@@ -156,8 +134,7 @@ function CombatService.MeleeAttack(player: Player, targetPart: BasePart?): (bool
 	end
 
 	-- Server-side range check against the actual target position.
-	local hitPosition = targetPart.Position
-	if (root.Position - hitPosition).Magnitude > MaxMeleeRange then
+	if (root.Position - targetPart.Position).Magnitude > MaxMeleeRange then
 		return false, "TargetOutOfRange"
 	end
 
@@ -192,7 +169,7 @@ function CombatService.RangedAttack(player: Player, targetPart: BasePart?): (boo
 
 	local weapon = getWeaponFor(player, "MainHand")
 	if not weapon then
-		return false, "NoWeaponEquippedEquipped"
+		return false, "NoWeaponEquipped"
 	end
 	local stats = weapon.equipment
 	if not stats.ranged then
