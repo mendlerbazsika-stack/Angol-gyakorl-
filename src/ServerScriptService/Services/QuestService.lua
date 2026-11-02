@@ -15,6 +15,7 @@ local QuestDefinitions = require(Shared:WaitForChild("QuestDefinitions"))
 local Services = ServerScriptService:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
 local InventoryService = require(Services:WaitForChild("InventoryService"))
+local PartyService = require(Services:WaitForChild("PartyService"))
 
 local QuestService = {}
 local started = false
@@ -178,6 +179,11 @@ function QuestService.TurnInQuest(player: Player, questId: string): (boolean, st
 	progression.completedQuests[questId] = true
 
 	grantRewards(player, quest)
+
+	-- Share a fraction of the quest's experience with nearby party members
+	-- who still have the same quest active. Items and currency stay personal.
+	PartyService.ShareQuestCompletion(player, quest)
+
 	broadcastState(player)
 	return true, nil
 end
