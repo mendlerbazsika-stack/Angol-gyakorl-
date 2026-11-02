@@ -3,11 +3,12 @@
 -- Server-side loot service. Handles loot container spawning and searching
 -- with per-container cooldowns so loot cannot be farmed by re-searching.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local ItemDefinitions = require(Shared:WaitForChild("ItemDefinitions"))
 
 local Services = ServerScriptService:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
@@ -59,7 +60,8 @@ local containerCooldowns: {[Player]: {[string]: number}} = {}
 local ContainerCooldownSeconds = 60
 
 function LootService.RegisterContainer(container: BasePart, lootTable: string, id: string)
-	if not LootTables[lootTable] then
+	local entries = LootTables[lootTable]
+	if not entries then
 		warn(("AFTERZERO LootService: unknown loot table %s"):format(lootTable))
 		return
 	end
@@ -68,26 +70,22 @@ function LootService.RegisterContainer(container: BasePart, lootTable: string, i
 	container:SetAttribute("LootContainerId", id)
 end
 
-local function rollTable(tableName: string): {string}
-	local table = LootTables[tableName]
+local function rollTable(entries: {any}): {any}
 	local results = {}
-	if not table then
+
+	local totalWeight = 0
+	for _, entry in ipairs(entries) do
+		totalWeight += entry.weight
+	end
+	if totalWeight <= 0 then
 		return results
 	end
 
 	local rolls = math.random(1, 3)
 	for _ = 1, rolls do
-		local totalWeight = 0
-		for _, entry in ipairs(table) do
-			totalWeight += entry.weight
-		end
-		if totalWeight <= 0 then
-			break
-		end
-
 		local roll = math.random() * totalWeight
-		local chosen = table[#table]
-		for _, entry in ipairs(table) do
+		local chosen = entries[#entries]
+		for _, entry in ipairs(entries) do
 			roll -= entry.weight
 			if roll <= 0 then
 				chosen = entry
@@ -136,10 +134,15 @@ function LootService.SearchContainer(player: Player, container: BasePart): (bool
 
 	playerCooldowns[containerId] = os.clock()
 
-	local results = rollTable(lootTable)
+	local entries = LootTables[lootTable]
+	if not entries then
+		return false, "UnknownLootTable"
+	end
+
+	local results = rollTable(entries)
 	local granted = {}
 	for _, entry in ipairs(results) do
-		local ok, err = InventoryService.AddItem(player, entry[1], entry[2])
+		local ok = InventoryService.AddItem(player, entry[1], entry[2])
 		if ok then
 			table.insert(granted, { id = entry[1], count = entry[2] })
 		end
@@ -153,17 +156,18 @@ function LootService.SearchContainer(player: Player, container: BasePart): (bool
 end
 
 local function handleRemote(player: Player, action: string, payload: any)
-	if action == "Search" then
-		if typeof(payload) ~= "table" or typeof(payload.containerId) ~= "string" then
-			return
-		end
+	if action ~= "Search" then
+		return
+	end
 
-		-- Resolve container by id from workspace folder.
-		local workspaceContainers = game:GetService("Workspace"):FindFirstChild("LootContainers")
-		local container = if workspaceContainers then workspaceContainers:FindFirstChild(payload.containerId) else nil
-		if container and container:IsA("BasePart") then
-			LootService.SearchContainer(player, container)
-		end
+	if typeof(payload) ~= "table" or typeof(payload.containerId) ~= "string" then
+		return
+	end
+
+	local containersFolder = Workspace:FindFirstChild("LootContainers")
+	local container = if containersFolder then containersFolder:FindFirstChild(payload.containerId) else nil
+	if container and container:IsA("BasePart") then
+		LootService.SearchContainer(player, container)
 	end
 end
 
@@ -183,7 +187,6 @@ function LootService.Start()
 	if LootRemote == nil then
 		LootRemote = Instance.new("RemoteEvent")
 		LootRemote.Name = "LootRemote"
-		Remote.Name = "LootRemote"
 		LootRemote.Parent = remotesFolder
 	end
 
@@ -191,7 +194,6 @@ function LootService.Start()
 		handleRemote(player, action, payload)
 	end)
 
-	Players = game:GetService("Players")
 	Players.PlayerRemoving:Connect(function(player)
 		containerCooldowns[player] = nil
 	end)
