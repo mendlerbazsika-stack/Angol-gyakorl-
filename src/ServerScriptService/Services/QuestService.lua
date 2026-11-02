@@ -16,6 +16,8 @@ local Services = ServerScriptService:WaitForChild("Services")
 local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
 local InventoryService = require(Services:WaitForChild("InventoryService"))
 local PartyService = require(Services:WaitForChild("PartyService"))
+local FactionService = require(Services:WaitForChild("FactionService"))
+local CampaignService = require(Services:WaitForChild("CampaignService"))
 
 local QuestService = {}
 local started = false
@@ -37,7 +39,14 @@ local function getStateTable(player: Player)
 	if typeof(progression.questObjectives) ~= "table" then
 		progression.questObjectives = {}
 	end
+	if typeof(progression.killProgress) ~= "table" then
+		progression.killProgress = {}
+	end
 	return progression
+end
+
+local function objectiveKey(questId: string, objectiveId: string): string
+	return questId .. ":" .. objectiveId
 end
 
 local function broadcastState(player: Player)
@@ -52,12 +61,23 @@ local function broadcastState(player: Player)
 		if quest then
 			local objectiveStatus = {}
 			for _, objective in ipairs(quest.objectives) do
-				local key = questId .. ":" .. objective.id
+				local key = objectiveKey(questId, objective.id)
 				local completed = progression.questObjectives[key] == true
+
+				-- Kill objectives report live progress.
+				local progress: any = nil
+				if objective.type == "KillEnemies" then
+					local progressKey = questId .. ":" .. objective.enemyId
+					local killed = progression.killProgress[progressKey] or 0
+					progress = { killed = killed, required = objective.count or 1 }
+					completed = killed >= (objective.count or 1)
+				end
+
 				table.insert(objectiveStatus, {
 					id = objective.id,
 					description = objective.description,
 					completed = completed,
+					progress = progress,
 				})
 			end
 			table.insert(active, {
@@ -86,11 +106,18 @@ local function prerequisitesMet(progression: any, questId: string): boolean
 end
 
 local function objectiveComplete(player: Player, questId: string, objective: any): boolean
-	local key = questId .. ":" .. objective.id
+	local key = objectiveKey(questId, objective.id)
 	local progression = getStateTable(player)
 	if not progression then
 		return false
 	end
+
+	if objective.type == "KillEnemies" then
+		local progressKey = questId .. ":" .. objective.enemyId
+		local killed = progression.killProgress[progressKey] or 0
+		return killed >= (objective.count or 1)
+	end
+
 	if progression.questObjectives[key] then
 		return true
 	end
@@ -138,6 +165,13 @@ local function grantRewards(player: Player, quest: any)
 	for _, rewardItem in ipairs(quest.rewards.items) do
 		InventoryService.AddItem(player, rewardItem.id, rewardItem.count)
 	end
+
+	-- Faction reputation is applied through the validated FactionService.
+	if quest.rewards.factionReputation then
+		for _, reputationReward in ipairs(quest.rewards.factionReputation) do
+			FactionService.AddReputation(player, reputationReward.factionId, reputationReward.amount)
+		end
+	end
 end
 
 function QuestService.TurnInQuest(player: Player, questId: string): (boolean, string?)
@@ -173,7 +207,10 @@ function QuestService.TurnInQuest(player: Player, questId: string): (boolean, st
 	end
 
 	for _, objective in ipairs(quest.objectives) do
-		progression.questObjectives[questId .. ":" .. objective.id] = nil
+		progression.questObjectives[objectiveKey(questId, objective.id)] = nil
+		if objective.enemyId then
+			progression.killProgress[questId .. ":" .. objective.enemyId] = nil
+		end
 	end
 	progression.activeQuests[questId] = nil
 	progression.completedQuests[questId] = true
@@ -184,12 +221,17 @@ function QuestService.TurnInQuest(player: Player, questId: string): (boolean, st
 	-- who still have the same quest active. Items and currency stay personal.
 	PartyService.ShareQuestCompletion(player, quest)
 
+	-- Campaign hooks: chapters check their requirements after every turn-in.
+	CampaignService.OnQuestCompleted(player, questId)
+
 	broadcastState(player)
 	return true, nil
 end
 
 function QuestService.NotifyTalkedTo(player: Player, npcId: string)
 	-- Completes any active TalkTo objective matching this NPC, then notifies.
+	-- Called by DialogueService when a dialogue session BEGINS with an NPC,
+	-- which is the actual moment the player "talks" to them.
 	local progression = getStateTable(player)
 	if not progression then
 		return
@@ -201,8 +243,36 @@ function QuestService.NotifyTalkedTo(player: Player, npcId: string)
 		if quest then
 			for _, objective in ipairs(quest.objectives) do
 				if objective.type == "TalkTo" and objective.npcId == npcId then
-					progression.questObjectives[questId .. ":" .. objective.id] = true
+					progression.questObjectives[objectiveKey(questId, objective.id)] = true
 					changed = true
+				end
+			end
+		end
+	end
+	if changed then
+		broadcastState(player)
+	end
+end
+
+-- Kill notification: called by EnemyService's hook after a validated kill.
+function QuestService.NotifyEnemyKilled(player: Player, enemyId: string)
+	local progression = getStateTable(player)
+	if not progression then
+		return
+	end
+
+	local changed = false
+	for questId in pairs(progression.activeQuests) do
+		local quest = QuestDefinitions.Get(questId)
+		if quest then
+			for _, objective in ipairs(quest.objectives) do
+				if objective.type == "KillEnemies" and objective.enemyId == enemyId then
+					local progressKey = questId .. ":" .. enemyId
+					local killed = progression.killProgress[progressKey] or 0
+					if killed < (objective.count or 1) then
+						progression.killProgress[progressKey] = killed + 1
+						changed = true
+					end
 				end
 			end
 		end
@@ -242,18 +312,21 @@ function QuestService.Start()
 
 	QuestRemote.OnServerEvent:Connect(handleRemote)
 
-	Players.PlayerAdded:Connect(function(player)
-		task.spawn(function()
-			repeat task.wait(0.5) until player.Parent == nil or player:GetAttribute("DataReady") == true
-			if player.Parent then broadcastState(player) end
-		end)
+	-- Subscribe to validated enemy kills for KillEnemies objectives.
+	local EnemyService = require(Services:WaitForChild("EnemyService"))
+	EnemyService.SetOnKilledCallback(function(player, enemyId, _regionId)
+		QuestService.NotifyEnemyKilled(player, enemyId)
 	end)
 
-	for _, player in Players:GetPlayers() do
+	local function onPlayerReady(player: Player)
 		task.spawn(function()
 			repeat task.wait(0.5) until player.Parent == nil or player:GetAttribute("DataReady") == true
 			if player.Parent then broadcastState(player) end
 		end)
+	end
+	Players.PlayerAdded:Connect(onPlayerReady)
+	for _, player in Players:GetPlayers() do
+		onPlayerReady(player)
 	end
 end
 
