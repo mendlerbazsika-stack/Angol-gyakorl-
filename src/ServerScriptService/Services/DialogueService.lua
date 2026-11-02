@@ -1,9 +1,9 @@
 --!strict
 -- AFTERZERO: THE LAST CIVILIZATION
 -- Server-side dialogue and NPC service. Resolves conditional dialogue nodes
--- from server quest state, drives quest accept/turn-in, and spawns NPC
--- rigs in the settlement with interaction prompts. The client can only pick
--- among server-approved options.
+-- from server quest state, drives quest accept/turn-in and endgame decisions,
+-- and spawns NPC rigs in the settlement with interaction prompts. The client
+-- can only pick among server-approved options.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +15,7 @@ local DialogueDefinitions = require(Shared:WaitForChild("DialogueDefinitions"))
 
 local Services = ServerScriptService:WaitForChild("Services")
 local QuestService = require(Services:WaitForChild("QuestService"))
+local CampaignService = require(Services:WaitForChild("CampaignService"))
 
 local DialogueService = {}
 local started = false
@@ -46,7 +47,6 @@ local NPC_SPAWNS = {
 }
 
 local function questState(player: Player, questId: string): string
-	local Services = ServerScriptService:WaitForChild("Services")
 	local PlayerDataService = require(Services:WaitForChild("PlayerDataService"))
 	local data = PlayerDataService.GetData(player)
 	if not data then
@@ -105,6 +105,7 @@ local function sendNode(player: Player, npcId: string, nodeId: string, npcName: 
 			text = option.text,
 			actionKind = option.actionKind or "None",
 			questId = option.questId,
+			decisionId = option.decisionId,
 		})
 	end
 
@@ -131,6 +132,10 @@ function DialogueService.BeginDialogue(player: Player, npcId: string): (boolean,
 	if activeSessions[player] then
 		return false, "DialogueInProgress"
 	end
+
+	-- Talking to this NPC completes any active TalkTo objective for them,
+	-- regardless of which node the conversation opens on.
+	QuestService.NotifyTalkedTo(player, npcId)
 
 	local entryNode = resolveEntryNode(player, npcId)
 	sendNode(player, npcId, entryNode, npc.name, npc.title)
@@ -171,11 +176,17 @@ function DialogueService.SelectOption(player: Player, optionIndex: number): (boo
 		if not ok then
 			return false, tostring(err)
 		end
-		QuestService.NotifyTalkedTo(player, session.npcId)
 		sendNode(player, session.npcId, option.next :: string, npc.name, npc.title)
 		return true, nil
 	elseif option.actionKind == "TurnInQuest" and option.questId then
 		local ok, err = QuestService.TurnInQuest(player, option.questId)
+		if not ok then
+			return false, tostring(err)
+		end
+		sendNode(player, session.npcId, option.next :: string, npc.name, npc.title)
+		return true, nil
+	elseif option.actionKind == "EndgameDecision" and option.decisionId then
+		local ok, err = CampaignService.SubmitEndgameDecision(player, option.decisionId)
 		if not ok then
 			return false, tostring(err)
 		end
