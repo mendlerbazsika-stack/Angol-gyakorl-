@@ -178,6 +178,13 @@ local function normalizeSurvival(source: any): any
 	}
 end
 
+-- Valid endgame decisions only; anything else drops to nil on load.
+local ValidEndgameDecisions = {
+	RestartTheCore = true,
+	BuryTheFacility = true,
+	HandToTheOrder = true,
+}
+
 function DataSchema.CreateDefault()
 	return {
 		schemaVersion = GameConfig.SchemaVersion,
@@ -210,6 +217,9 @@ function DataSchema.CreateDefault()
 			activeQuests = {},
 			completedQuests = {},
 			questObjectives = {},
+			killProgress = {},
+			completedChapters = {},
+			endgameDecision = nil,
 			craftedRecipes = {},
 			storyDecisions = {},
 			factionReputation = {},
@@ -262,6 +272,14 @@ function DataSchema.Normalize(raw: any)
 	data.progression.activeQuests = copyBooleanMap(progression.activeQuests)
 	data.progression.completedQuests = copyBooleanMap(progression.completedQuests)
 	data.progression.questObjectives = copyBooleanMap(progression.questObjectives)
+	data.progression.killProgress = copyNumberMap(progression.killProgress, 0, 999)
+	data.progression.completedChapters = copyBooleanMap(progression.completedChapters)
+
+	local endgameDecision = progression.endgameDecision
+	if typeof(endgameDecision) == "string" and ValidEndgameDecisions[endgameDecision] then
+		data.progression.endgameDecision = endgameDecision
+	end
+
 	data.progression.craftedRecipes = copyBooleanMap(progression.craftedRecipes)
 	data.progression.storyDecisions = copyStringMap(progression.storyDecisions, 100)
 	data.progression.factionReputation = copyNumberMap(
